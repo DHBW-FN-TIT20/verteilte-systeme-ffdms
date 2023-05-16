@@ -1,7 +1,7 @@
+from pydantic import BaseModel
+from typing import Optional
 
-class TransportMessage:
-
-    def __init__(self, serviceId, timestamp, payload = None) -> None:
-        self.serviceId = serviceId
-        self.timestamp = timestamp
-        self.payload = payload
+class TransportMessage(BaseModel):
+    timestamp: int
+    topic: Optional[str]
+    payload: Optional[str]
