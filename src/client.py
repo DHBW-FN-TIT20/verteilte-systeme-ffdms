@@ -1,6 +1,12 @@
 import asyncio
 import socketio
 import argparse
+import time
+import json
+
+from transport_message import TransportMessage
+from services import Services
+
 class Client:
 
     def __init__(self, serverId) -> None:
@@ -12,7 +18,9 @@ class Client:
         await self.socket.wait()
 
     def subscribe(self,topic):
-        pass
+        #TODO: Subscripe for multible topics at once
+        tMessage = TransportMessage(timestamp=time.time(), topic=topic)
+        self.socket.emit('SUBSCRIBE_TOPIC', json.dump(tMessage))
 
     def unsubscribe(self,topic):
         pass
@@ -44,5 +52,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(args)
-    cli = Client("https://www.google.com")
+    cli = Client(args.server)
+    cli.subscribe(args.subscribe)
 
