@@ -19,7 +19,11 @@ class Client:
         :type server_id: string
         """
         self.socket = socketio.Client()
-        self.socket.connect(server_id)
+        try:
+            self.socket.connect(server_id)
+        except socketio.exceptions.ConnectionError:
+            print(f"No connection to {server_id}, please make sure the server is available.")
+            sys.exit(0)
 
         self.socket.on("PRINT_MESSAGE", self._handleResponse)
         self.socket.on("PRINT_MESSAGE_AND_EXIT", self._handleExitResponse)
@@ -49,7 +53,7 @@ class Client:
         Request to unsubscribe from topics in self.subscribed_topics and disconnect
         """
 
-        print(f"======= UNSUBSCRIBED FROM {', '.join(self.subscribed_topics)} =======")
+        print(f"\n======= UNSUBSCRIBED FROM {', '.join(self.subscribed_topics)} =======")
         for topic in self.subscribed_topics:
             tMessage = TransportMessage(timestamp=time.time(), topic=topic)
             self.socket.emit("UNSUBSCRIBE_TOPIC", tMessage.json())
@@ -116,7 +120,7 @@ if __name__ == "__main__":
 
     # workaround for
     # KeyboardInterrupt: "Exception ignored in: <module 'threading' from '/usr/lib/python3.10/threading.py'>"
-    # -> Don't show Error messages
+    # To see error messages, comment those lines
     fnull = open(os.devnull, 'w')
     r = redirect_stderr(fnull)
     r.__enter__()
