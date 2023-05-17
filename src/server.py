@@ -1,6 +1,7 @@
 import socketio
 import json
 import time
+import asyncio
 from datetime import datetime
 from aiohttp import web
 from argparse import ArgumentParser
@@ -19,6 +20,7 @@ class Topic:
         self.content = None
         self.subscribers: List[str] = []
         self.timestamp = None
+        self.last_update = None
 
 
 class Server:
@@ -187,10 +189,13 @@ class Server:
                     await self.sio.emit("PRINT_MESSAGE", response.json(), room=sub)
 
 
+    async def heart_beat(self, time_delta):
+        while True:
+            for topic in self.list_of_topics:
                 if int(time.time()) - topic.last_update > time_delta:
                     await self.update_topic(topic.name)
+
 
 if __name__ == "__main__":
     args = parser.parse_args()
     server = Server(args)
-    
