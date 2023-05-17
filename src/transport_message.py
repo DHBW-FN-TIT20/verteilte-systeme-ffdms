@@ -5,3 +5,4 @@ class TransportMessage(BaseModel):
     timestamp: int
     topic: Optional[str]
     payload: Optional[str]
+
