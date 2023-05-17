@@ -37,7 +37,6 @@ class Client:
         :param topics: topics
         :type topics: string or list of strings
         """
-
         self.subscribed_topics = topics
         # string to list
         if not isinstance(topics, list):
@@ -52,7 +51,6 @@ class Client:
         """
         Request to unsubscribe from topics in self.subscribed_topics and disconnect
         """
-
         print(f"\n======= UNSUBSCRIBED FROM {', '.join(self.subscribed_topics)} =======")
         for topic in self.subscribed_topics:
             tMessage = TransportMessage(timestamp=time.time(), topic=topic)
@@ -118,6 +116,24 @@ class Client:
 
 if __name__ == "__main__":
 
+    # init parser
+    parser = argparse.ArgumentParser(
+        prog="Client",
+        description="Client for Publisher"
+    )
+
+    parser.add_argument("-s", "--server", required=True, help="server address", metavar="ADDRESS:PORT")
+    parser.add_argument("-sub", "--subscribe", nargs="+", help="list of topics to subscribe", metavar="TOPIC")
+    parser.add_argument("-p", "--publish", help="published topic", metavar="TOPIC")
+    parser.add_argument("-m", "--message", help="message to be published to topic", metavar="STRING")
+    parser.add_argument("-st", "--status", help="get topic status from server", metavar="TOPIC")
+    parser.add_argument("-l", "--list", action="store_true", help="get all list topics from server")
+
+    args = parser.parse_args()
+
+    # init client
+    cli = Client(args.server)
+
     # workaround for
     # KeyboardInterrupt: "Exception ignored in: <module 'threading' from '/usr/lib/python3.10/threading.py'>"
     # To see error messages, comment those lines
@@ -125,37 +141,16 @@ if __name__ == "__main__":
     r = redirect_stderr(fnull)
     r.__enter__()
 
-    # init parser
-    parser = argparse.ArgumentParser(
-        prog="Client",
-        description="Client for Publisher"
-    )
-
-    parser.add_argument("-sub", "--subscribe", nargs="+", help="list of topics to subscribe", metavar="TOPIC")
-    parser.add_argument("-p", "--publish", help="published topic", metavar="TOPIC")
-    parser.add_argument("-m", "--message", help="message to be published to topic", metavar="STRING")
-    parser.add_argument("-l", "--list", action="store_true", help="get all list topics from server")
-    parser.add_argument("-st", "--status", help="get topic status from server")
-    parser.add_argument("-s", "--server", required=True, help="server address", metavar="ADDRESS:PORT")
-
-    args = parser.parse_args()
-
     # call client functions
-    cli = Client(args.server)
-
     if args.subscribe:
         cli.subscribe(args.subscribe)
         atexit.register(cli.unsubscibe)
-
     elif args.publish and args.message:
         cli.publish(args.publish, args.message)
-
     elif args.list:
         cli.listTopics()
-    
     elif args.status:
         cli.getTopicStatus(args.status)
-
     else:
         print("No action, please check your parameters")
     
