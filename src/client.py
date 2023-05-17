@@ -8,16 +8,12 @@ import sys
 from transport_message import TransportMessage
 from services import Services
 
-
 class Client:
 
-    def __init__(self, serverId) -> None:
-        asyncio.run(self._intializeConnection(serverId))
-
-    async def _intializeConnection(self,serverId):
-        self.socket = socketio.AsyncClient()
-        await self.socket.connect(serverId)
-        await self.socket.wait()
+    def __init__(self, server_id) -> None:
+        self.socket = socketio.Client()
+        self.socket.connect(server_id)
+        self.socket.on("PRINT_MESSAGE", self._handleResponse)
 
     def subscribe(self, topics):
         if not isinstance(topics, list):
@@ -47,9 +43,9 @@ class Client:
         tMessage = TransportMessage(timestamp=time.time(), topic=topic)
         self.socket.emit("GET_TOPIC_STATUS", tMessage.json())
 
-    # @sio.on
-    def handleResponse(self, response):
-        print(f"SERVER RESPONSE: {response}")
+    # @socket.on("PRINT_MESSAGE")
+    def _handleResponse(self, response):
+        print(f"SERVER RESPONSE: {self, response}")
 
 
 if __name__ == "__main__":
@@ -71,7 +67,7 @@ if __name__ == "__main__":
     # call client functions
     cli = Client(args.server)
 
-    if args.sub:
+    if args.subscribe:
         try:
             cli.subscribe(args.subscribe)
         except KeyboardInterrupt: # Catch Ctrl+C TODO: use exit handler
