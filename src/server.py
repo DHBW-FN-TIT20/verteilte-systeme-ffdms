@@ -40,7 +40,7 @@ async def handle_subscribe(sid, data) -> None:
     # Check if data contains topic
     if data["topic"] is None:
         response = TransportMessage(timestamp=int(time.time()), payload="Missing parameter topic.")
-        await sio.emit("UNSUBSCRIBE_TOPIC", response.json(), room=sid)
+        await sio.emit("PRINT_MESSAGE", response.json(), room=sid)
         return None
     # Check if topic already exists
     for topic in list_of_topics:
@@ -48,12 +48,12 @@ async def handle_subscribe(sid, data) -> None:
             # Check if sid already subscribed to topic
             if sid in topic.subscribers:
                 response = TransportMessage(timestamp=int(time.time()), payload=f"Already subscribed to {data['topic']}.")
-                await sio.emit("SUBSCRIBE_TOPIC", response.json(), room=sid)
+                await sio.emit("PRINT_MESSAGE", response.json(), room=sid)
                 return None
             # Subscribe to topic
             topic.subscribers.append(sid)
             response = TransportMessage(timestamp=int(time.time()), payload=f"Successfully subscribed to {data['topic']}.")
-            await sio.emit("SUBSCRIBE_TOPIC", response.json(), room=sid)
+            await sio.emit("PRINT_MESSAGE", response.json(), room=sid)
             return None
     # Create new topic if not already existing and subscribe
     new_topic = Topic()
@@ -61,7 +61,7 @@ async def handle_subscribe(sid, data) -> None:
     new_topic.subscribers.append(sid)
     list_of_topics.append(new_topic)
     response = TransportMessage(timestamp=int(time.time()), payload=f"Created {data['topic']} and successfully subscribed.")
-    await sio.emit("SUBSCRIBE_TOPIC", response.json(), room=sid)
+    await sio.emit("PRINT_MESSAGE", response.json(), room=sid)
 
 
 @sio.on("UNSUBSCRIBE_TOPIC")
