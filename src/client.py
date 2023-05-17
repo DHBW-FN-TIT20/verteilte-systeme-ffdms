@@ -25,7 +25,7 @@ class Client:
 
         for t in topics:
             tMessage = TransportMessage(timestamp=time.time(), topic=t)
-            self.socket.emit("SUBSCRIBE_TOPIC", json.dump(tMessage))
+            self.socket.emit("SUBSCRIBE_TOPIC", tMessage.json())
 
     def unsubscribe(self, topics):
         if not isinstance(topics, list):
@@ -33,20 +33,23 @@ class Client:
 
         for t in topics:
             tMessage = TransportMessage(timestamp=time.time(), topic=t)
-            self.socket.emit("UNSUBSCRIBE_TOPIC", json.dump(tMessage))
+            self.socket.emit("UNSUBSCRIBE_TOPIC", tMessage.json())
 
     def publish(self, topic, message):
-        pass
+        tMessage = TransportMessage(timestamp=time.time(), topic=topic, payload=message)
+        self.socket.emit("PUBLISH_TOPIC", tMessage.json())
 
     def listTopics(self):
         tMessage = TransportMessage(timestamp=time.time())
-        self.socket.emit("LIST_TOPICS", json.dump(tMessage))
+        self.socket.emit("LIST_TOPICS", tMessage.json())
 
     def getTopicStatus(self, topic):
-        pass
+        tMessage = TransportMessage(timestamp=time.time(), topic=topic)
+        self.socket.emit("GET_TOPIC_STATUS", tMessage.json())
 
-    def handleUpdateTopic(message):
-        pass
+    # @sio.on
+    def handleResponse(self, response):
+        print(f"SERVER RESPONSE: {response}")
 
 
 if __name__ == "__main__":
@@ -60,6 +63,7 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--publish", help="published topic", metavar="TOPIC")
     parser.add_argument("-m", "--message", help="message to be published to topic", metavar="STRING")
     parser.add_argument("-l", "--list", action="store_true", help="get all list topics from server")
+    parser.add_argument("-st", "--status", action="store_true", help="get topic status from server")
     parser.add_argument("-s", "--server", required=True, help="server address", metavar="ADDRESS:PORT")
 
     args = parser.parse_args()
@@ -79,6 +83,9 @@ if __name__ == "__main__":
 
     elif args.list:
         cli.listTopics(args.list)
+    
+    elif args.status:
+        cli.listTopics(args.status)
 
     else:
         print("No action, please check your parameters")
