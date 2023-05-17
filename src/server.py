@@ -166,7 +166,10 @@ class Server:
                 subscribers = ""
                 for s in topic.subscribers:
                     subscribers += f"\n{s}"
-                topic_status = f"topic name:\t{topic.name}\n\ntimestamp:\t{datetime.fromtimestamp(int(topic.timestamp)).strftime('%d-%m-%Y %H:%M:%S')}\n\ncontent:\t{topic.content}\n\nsubscribers:{subscribers}"
+                if topic.content is None or topic.timestamp is None:
+                    topic_status = f"topic name:\t{topic.name}\n\nsubscribers:{subscribers}\n\nThere was no publish on this topic yet."
+                else:
+                    topic_status = f"topic name:\t{topic.name}\n\ntimestamp:\t{datetime.fromtimestamp(int(topic.timestamp)).strftime('%d-%m-%Y %H:%M:%S')}\n\ncontent:\t{topic.content}\n\nsubscribers:{subscribers}"
                 response = TransportMessage(timestamp=int(time.time()), payload=topic_status)
                 await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
                 return None
