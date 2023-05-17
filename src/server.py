@@ -7,11 +7,23 @@ from aiohttp import web
 from argparse import ArgumentParser
 from typing import List
 from transport_message import TransportMessage
+from threading import Thread
 
 
 parser = ArgumentParser(prog="server.py", description="Starts a server for publisher subscriber system")
 parser.add_argument("-p", "--port", type=str, help="Port to run the server on. Default is 8080", default=8080, metavar="PORT")
 parser.add_argument("--host", type=str, help="Host to run the server on. Default is localhost", default="127.0.0.1", metavar="HOST")
+
+
+class ParallelTimer(Thread):
+    def __init__(self, server) -> None:
+        super().__init__()
+        self.server = server
+
+    def run(self):
+        while 1:
+            heartbeat = self.server.heart_beat(20)
+            asyncio.run(heartbeat)
 
 
 class Topic:
@@ -35,15 +47,9 @@ class Server:
         self.sio.on("LIST_TOPICS", self.handle_list_topics)
         self.sio.on("GET_TOPIC_STATUS", self.handle_topic_status)
 
-        # wrap with ASGI application
-        app = web.Application()
-        self.sio.attach(app)
-        web.run_app(app, host=args.host, port=args.port)
-        asyncio.run(self.heart_beat(120))
-
 
     async def connect(self, sid, environ, auth):
-        print(sid, "connected")
+        print(f"{sid} connected ({environ['REMOTE_ADDR']})")
 
 
     async def handle_subscribe(self, sid, data = None) -> None:
@@ -166,11 +172,11 @@ class Server:
             if topic.name == data["topic"]:
                 subscribers = ""
                 for s in topic.subscribers:
-                    subscribers += f"\n{s}"
+                    subscribers += f"\t{s}\n\t"
                 if topic.content is None or topic.timestamp is None:
-                    topic_status = f"topic name:\t{topic.name}\n\nsubscribers:{subscribers}\n\nThere was no publish on this topic yet."
+                    topic_status = f"\ntopic name:\t{topic.name}\n\nsubscribers:{subscribers}\n\nThere was no publish on this topic yet."
                 else:
-                    topic_status = f"topic name:\t{topic.name}\n\ntimestamp:\t{datetime.fromtimestamp(int(topic.timestamp)).strftime('%d-%m-%Y %H:%M:%S')}\n\ncontent:\t{topic.content}\n\nsubscribers:{subscribers}"
+                    topic_status = f"\ntopic name:\t{topic.name}\n\ntimestamp:\t{datetime.fromtimestamp(int(topic.timestamp)).strftime('%d-%m-%Y %H:%M:%S')}\n\ncontent:\t{topic.content}\n\nsubscribers:{subscribers}"
                 response = TransportMessage(timestamp=int(time.time()), payload=topic_status)
                 await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
                 return None
@@ -187,15 +193,25 @@ class Server:
                 # Top1 (17.05.2023, 09:12): Content hier
                 for sub in t.subscribers:
                     await self.sio.emit("PRINT_MESSAGE", response.json(), room=sub)
+                print("sent")
 
 
     async def heart_beat(self, time_delta):
-        while True:
-            for topic in self.list_of_topics:
-                if int(time.time()) - topic.last_update > time_delta:
-                    await self.update_topic(topic.name)
+        for topic in self.list_of_topics:
+            if topic.last_update is not None and int(time.time()) - topic.last_update > time_delta:
+                await self.update_topic(topic.name)
+                print(f"updated {topic.name}")
 
 
 if __name__ == "__main__":
     args = parser.parse_args()
+
     server = Server(args)
+
+    timer = ParallelTimer(server)
+    timer.start()
+
+    # wrap with ASGI application
+    app = web.Application()
+    server.sio.attach(app)
+    web.run_app(app, host=args.host, port=args.port)

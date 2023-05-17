@@ -13,6 +13,11 @@ def answer(data):
     data = json.loads(data)
     print(data["payload"])
 
+@sio.on('PRINT_MESSAGE_AND_EXIT')
+def answer(data):
+    data = json.loads(data)
+    print(data["payload"])
+
 data = TransportMessage(timestamp=int(time.time()), topic="test", payload="test")
 print(data.json())
 sio.emit("SUBSCRIBE_TOPIC", data.json())
