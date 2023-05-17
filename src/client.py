@@ -3,13 +3,21 @@ import socketio
 import argparse
 import time
 import json
-import sys
-
+import sys, os
+from contextlib import redirect_stderr
 from transport_message import TransportMessage
 
 class Client:
+    """
+    Client object for publisher server
+    """
 
     def __init__(self, server_id) -> None:
+        """Constructor, init socket and variables
+
+        :param server_id: server address
+        :type server_id: string
+        """
         self.socket = socketio.Client()
         self.socket.connect(server_id)
 
@@ -18,7 +26,13 @@ class Client:
 
         self.subscribed_topics = []
 
-    def subscribe(self, topics):
+    def subscribe(self, topics) -> None:
+        """
+        Request to subscribe to topics, wait for server messages
+
+        :param topics: topics
+        :type topics: string or list of strings
+        """
 
         self.subscribed_topics = topics
         # string to list
@@ -30,38 +44,67 @@ class Client:
             tMessage = TransportMessage(timestamp=time.time(), topic=topic)
             self.socket.emit("SUBSCRIBE_TOPIC", tMessage.json())
 
-    def unsubscibe(self):
+    def unsubscibe(self) -> None:
+        """
+        Request to unsubscribe from topics in self.subscribed_topics and disconnect
+        """
 
-        print("exxxiiittt")
-
-        # Unsubscribe        
-        # print(f"======= UNSUBSCRIBED FROM {', '.join(self.subscribed_topics)} =======")
-        #for topic in self.subscribed_topics:
-        #    tMessage = TransportMessage(timestamp=time.time(), topic=topic)
-        #    self.socket.emit("UNSUBSCRIBE_TOPIC", tMessage.json())
+        print(f"======= UNSUBSCRIBED FROM {', '.join(self.subscribed_topics)} =======")
+        for topic in self.subscribed_topics:
+            tMessage = TransportMessage(timestamp=time.time(), topic=topic)
+            self.socket.emit("UNSUBSCRIBE_TOPIC", tMessage.json())
         
         # Disconnect
         self.socket.disconnect()
 
     def publish(self, topic, message):
+        """
+        Request to publish a message to the topic
+
+        :param topic: topic
+        :type topic: string
+        :param message: message for topic
+        :type message: string
+        """
         print(f"======= PUBLISH MESSAGE =======")
         print(f"Message: {message}")
         tMessage = TransportMessage(timestamp=time.time(), topic=topic, payload=message)
         self.socket.emit("PUBLISH_TOPIC", tMessage.json())
 
     def listTopics(self):
+        """
+        Request to list all topics avaliable
+        """
         tMessage = TransportMessage(timestamp=time.time())
         self.socket.emit("LIST_TOPICS", tMessage.json())
 
     def getTopicStatus(self, topic):
+        """
+        Request to get topic status
+
+        :param topic: topic
+        :type topic: string
+        """
         tMessage = TransportMessage(timestamp=time.time(), topic=topic)
         self.socket.emit("GET_TOPIC_STATUS", tMessage.json())
     
     def _handleResponse(self, response):
+        """
+        Receive PRINT_MESSAGE response from server
+
+        :param response: response from server
+        :type response: string
+        """
         response_dict = json.loads(response)
         print(f"{response_dict['payload']}")
     
     def _handleExitResponse(self, response):
+        """
+        Receive PRINT_MESSAGE_AND_EXIT response from server
+
+        :param response: response from server
+        :type response: string
+        """
         self._handleResponse(response)
         
         # Exit
@@ -71,6 +114,14 @@ class Client:
 
 if __name__ == "__main__":
 
+    # workaround for
+    # KeyboardInterrupt: "Exception ignored in: <module 'threading' from '/usr/lib/python3.10/threading.py'>"
+    # -> Don't show Error messages
+    fnull = open(os.devnull, 'w')
+    r = redirect_stderr(fnull)
+    r.__enter__()
+
+    # init parser
     parser = argparse.ArgumentParser(
         prog="Client",
         description="Client for Publisher"
@@ -104,4 +155,3 @@ if __name__ == "__main__":
     else:
         print("No action, please check your parameters")
     
-
