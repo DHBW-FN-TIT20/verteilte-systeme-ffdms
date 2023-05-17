@@ -37,11 +37,10 @@ class Server:
         app = web.Application()
         self.sio.attach(app)
         web.run_app(app, host=args.host, port=args.port)
+        asyncio.run(self.heart_beat(120))
 
 
     async def connect(self, sid, environ, auth):
-        response = TransportMessage(timestamp=int(time.time()), payload="Successfully connected to server.")
-        await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
         print(sid, "connected")
 
 
@@ -83,13 +82,13 @@ class Server:
         # Check if data is None
         if data is None:
             response = TransportMessage(timestamp=int(time.time()), payload="Internal Server Error.")
-            await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
+            await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
             return None
         data = json.loads(data)
         # Check if data contains topic
         if data["topic"] is None:
             response = TransportMessage(timestamp=int(time.time()), payload="Missing parameter topic.")
-            await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
+            await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
             return None
         # Check if topic exists
         for topic in self.list_of_topics:
@@ -98,33 +97,33 @@ class Server:
                 if sid in topic.subscribers:
                     topic.subscribers.remove(sid)
                     response = TransportMessage(timestamp=int(time.time()), payload=f"Successfully unsubscribed from {data['topic']}.")
-                    await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
+                    await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
                     return None
                 # Not subscribed
                 response = TransportMessage(timestamp=int(time.time()), payload=f"Not subscribed to {data['topic']}.")
-                await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
+                await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
                 return None
         # Topic not existing
         response = TransportMessage(timestamp=int(time.time()), payload=f"{data['topic']} does not exist.")
-        await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
+        await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
 
 
     async def handle_publish(self, sid, data = None) -> None:
         # Check if data is None
         if data is None:
             response = TransportMessage(timestamp=int(time.time()), payload="Internal Server Error.")
-            await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
+            await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
             return None
         data = json.loads(data)
         # Check if data contains topic
         if data["topic"] is None:
             response = TransportMessage(timestamp=int(time.time()), payload="Missing parameter topic.")
-            await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
+            await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
             return None
         # Check if data contains payload
         if data["payload"] is None:
             response = TransportMessage(timestamp=int(time.time()), payload="Missing parameter message.")
-            await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
+            await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
             return None
         # Check if topic exists
         for topic in self.list_of_topics:
@@ -132,33 +131,33 @@ class Server:
                 topic.content = data["payload"]
                 topic.timestamp = data["timestamp"]
                 response = TransportMessage(timestamp=int(time.time()), payload=f"Successfully published message to {data['topic']}.")
-                await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
+                await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
                 await self.update_topic(data["topic"])
                 return None
         # Topic not existing
         response = TransportMessage(timestamp=int(time.time()), payload=f"{data['topic']} does not exist.")
-        await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
+        await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
 
 
     async def handle_list_topics(self, sid, data = None) -> None:
-        response_msg = "All topics on the server:\n"
+        response_msg = "All topics on the server:"
         for topic in self.list_of_topics:
             response_msg += f"\n{topic.name}"
         response = TransportMessage(timestamp=int(time.time()), payload=response_msg)
-        await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
+        await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
 
 
     async def handle_topic_status(self, sid, data = None) -> None:
         # Check if data is None
         if data is None:
             response = TransportMessage(timestamp=int(time.time()), payload="Internal Server Error.")
-            await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
+            await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
             return None
         data = json.loads(data)
         # Check if data contains topic
         if data["topic"] is None:
             response = TransportMessage(timestamp=int(time.time()), payload="Missing parameter topic.")
-            await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
+            await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
             return None
         # Check if topic exists
         for topic in self.list_of_topics:
@@ -171,22 +170,27 @@ class Server:
                 else:
                     topic_status = f"topic name:\t{topic.name}\n\ntimestamp:\t{datetime.fromtimestamp(int(topic.timestamp)).strftime('%d-%m-%Y %H:%M:%S')}\n\ncontent:\t{topic.content}\n\nsubscribers:{subscribers}"
                 response = TransportMessage(timestamp=int(time.time()), payload=topic_status)
-                await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
+                await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
                 return None
         # Topic not existing
         response = TransportMessage(timestamp=int(time.time()), payload=f"{data['topic']} does not exist.")
-        await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
+        await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
 
 
     async def update_topic(self, topic) -> None:
         for t in self.list_of_topics:
             if t.name == topic:
+                t.last_update = int(time.time())
                 response = TransportMessage(timestamp=int(time.time()), payload=f"{t.name} ({datetime.fromtimestamp(int(t.timestamp)).strftime('%d-%m-%Y %H:%M:%S')}): {t.content}")
                 # Top1 (17.05.2023, 09:12): Content hier
                 for sub in t.subscribers:
                     await self.sio.emit("PRINT_MESSAGE", response.json(), room=sub)
 
 
+                if int(time.time()) - topic.last_update > time_delta:
+                    await self.update_topic(topic.name)
+
 if __name__ == "__main__":
     args = parser.parse_args()
     server = Server(args)
+    
