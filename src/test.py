@@ -1,6 +1,5 @@
 import socketio
 from transport_message import TransportMessage
-import json
 import time
 
 from pydantic import BaseModel

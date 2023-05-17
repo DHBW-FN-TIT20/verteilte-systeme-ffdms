@@ -37,19 +37,25 @@ def connect(sid, environ, auth):
 @sio.on("SUBSCRIBE_TOPIC")
 async def handle_subscribe(sid, data) -> None:
     data = json.loads(data)
-
-    #TODO: Check if sid isch drin
-
+    # Check if data contains topic
     if data["topic"] is None:
         response = TransportMessage(timestamp=int(time.time()), payload="Missing parameter topic.")
         await sio.emit("UNSUBSCRIBE_TOPIC", response.json(), room=sid)
         return None
+    # Check if topic already exists
     for topic in list_of_topics:
         if topic.name == data["topic"]:
+            # Check if sid already subscribed to topic
+            if sid in topic.subscribers:
+                response = TransportMessage(timestamp=int(time.time()), payload=f"Already subscribed to {data['topic']}.")
+                await sio.emit("SUBSCRIBE_TOPIC", response.json(), room=sid)
+                return None
+            # Subscribe to topic
             topic.subscribers.append(sid)
             response = TransportMessage(timestamp=int(time.time()), payload=f"Successfully subscribed to {data['topic']}.")
             await sio.emit("SUBSCRIBE_TOPIC", response.json(), room=sid)
             return None
+    # Create new topic if not already existing and subscribe
     new_topic = Topic()
     new_topic.name = data["topic"]
     new_topic.subscribers.append(sid)
@@ -60,20 +66,6 @@ async def handle_subscribe(sid, data) -> None:
 
 @sio.on("UNSUBSCRIBE_TOPIC")
 async def handle_unsubscribe(self, sid, data) -> None:
-    # data = self._decode(data)
-    # if data.topic is None:
-    #     await sio.emit("UNSUBSCRIBE_TOPIC", "Wrong parameters.", room=sid)
-    #     return None
-    # for topic in list_of_topics:
-    #     if topic.name == data.topic:
-    #         if sid in topic.subscribers:
-    #             topic.subscribers.remove(sid)
-    #             await sio.emit("UNSUBSCRIBE_TOPIC", f"Socket successfully removed from {data.topic}.", room=sid)
-    #             return None
-    #         else:
-    #             await sio.emit("UNSUBSCRIBE_TOPIC", f"Socket not in Topic {data.topic}.", room=sid)
-    #             return None
-    # await sio.emit("UNSUBSCRIBE_TOPIC", f"{data.topic} does not exist.", room=sid)
     pass
 
 

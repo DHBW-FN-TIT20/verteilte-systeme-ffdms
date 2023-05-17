@@ -1,2 +1,4 @@
-python-socketio
 aiohttp
+pydantic
+python-socketio
+websocket-client
