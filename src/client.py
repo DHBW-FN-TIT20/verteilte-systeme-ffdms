@@ -1,11 +1,17 @@
-import atexit
-import socketio
+"""Starts a Client to communicate with the server. For more information, please run `python client.py --help`"""
+
 import argparse
-import time
+import atexit
 import json
-import sys, os
+import os
+import sys
+import time
 from contextlib import redirect_stderr
+
+import socketio
+
 from transport_message import TransportMessage
+
 
 class Client:
     """

@@ -1,4 +1,6 @@
+"""Contain the services that the server can provide to the client."""
 from enum import Enum
+
 
 class Services(Enum):
     SUBSCRIBE_TOPIC = 0

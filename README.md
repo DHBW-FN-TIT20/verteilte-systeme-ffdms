@@ -7,7 +7,7 @@ Florian Glaser, Florian Herkommer, David Felder, Miriam Astor, Steffen Freitag
 Server starten:
 
 ```bash
-python server.py
+python src/server.py
 
 >>> ======== Running on http://127.0.0.1:8080 ========
 >>> (Press CTRL+C to quit)
@@ -16,13 +16,13 @@ python server.py
 - Ein Topic subscriben:
 
   ```bash
-  python client.py --server http://127.0.0.1:8080 --subscribe first_topic second_topic
+  python src/client.py --server http://127.0.0.1:8080 --subscribe first_topic second_topic
   ```
   
 - Eine Nachricht für Topics schreiben:
 
   ```bash
-  python client.py --server http://127.0.0.1:8080 --publish second_topic --message "Hello World Message"
+  python src/client.py --server http://127.0.0.1:8080 --publish second_topic --message "Hello World Message"
   ```
 
 - ...
