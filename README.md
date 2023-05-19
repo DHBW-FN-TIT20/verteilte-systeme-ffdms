@@ -27,6 +27,27 @@ python src/server.py
 
 - ...
 
+## Pytest
+Es wird hier nur der Server getestet. Zum testen muss der Server gestartet werden. Es kann zudem immer nur 1 Test ausgeführt werden. Anschließend muss der Server neu gestartet werden.
+
+Folgende Tests stehen zu Verfügung:
+- `test_subscribe`
+- `test_publish`
+- `test_unsubscribe`
+- `test_list_topics`
+- `test_get_topic_status`
+
+Server starten:
+```bash
+python src/server.py
+```
+
+Beispiel `test_subscribe` ausführen:
+```bash
+cd src
+pytest test.py::test_subscribe
+```
+
 ## Dokumentation
 
 ### Technologien
