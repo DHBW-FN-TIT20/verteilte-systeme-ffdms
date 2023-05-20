@@ -1,7 +1,6 @@
 import socketio
 from transport_message import TransportMessage
 import time
-import json
 import pytest
 
 RESPOSE1 = None
