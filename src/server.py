@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import time
+import functools
 from argparse import ArgumentParser
 from datetime import datetime
 from threading import Lock, Thread
@@ -61,8 +62,10 @@ class Server:
         """Decorator for checking if data is None.
         If data is None, the client will receive an error message.
         """
-
-        async def wrapper(self, sid, data=None):
+        @functools.wraps(func)
+        async def wrapper(self, *args, **kwargs):
+            sid = args[0]
+            data = args[1] if len(args) > 1 else None
             if data is None:
                 response = TransportMessage(
                     timestamp=int(time.time()), payload="Missing payload of type TransportMessage."
@@ -70,7 +73,7 @@ class Server:
                 await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
                 logging.error(response.payload)
                 return None
-            return await func(self, sid, data)
+            return await func(self, *args, **kwargs)
 
         return wrapper
 
@@ -79,8 +82,10 @@ class Server:
         """Decorator for checking if topic exists.
         If topic does not exist, the client will receive an error message.
         """
-
-        async def wrapper(self, sid, data):
+        @functools.wraps(func)
+        async def wrapper(self, *args, **kwargs):
+            sid = args[0]
+            data = args[1] if len(args) > 1 else None
             try:
                 parsed_data = TransportMessage.parse_raw(data)
             except Exception:
@@ -95,7 +100,7 @@ class Server:
                 await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
                 logging.error(response.payload)
                 return None
-            return await func(self, sid, data)
+            return await func(self, *args, **kwargs)
 
         return wrapper
 
