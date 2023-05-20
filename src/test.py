@@ -205,9 +205,11 @@ def test_publish(client, client2):
     RESPOSE2 = None
 
 
-def test_unsubscribe(client):
+def test_unsubscribe(client, client2):
     global RESPOSE1
+    global RESPOSE2
     RESPOSE1 = None
+    RESPOSE2 = None
     sub_topic = "test"
     emit_topic = "UNSUBSCRIBE_TOPIC"
 
@@ -229,6 +231,18 @@ def test_unsubscribe(client):
     client.emit("SUBSCRIBE_TOPIC", TransportMessage(timestamp=int(time.time()), topic=sub_topic).json())
     time.sleep(0.5)
 
+    # Unsubscribe from topic that is already unsubscribed
+    client2.emit(emit_topic, TransportMessage(timestamp=int(time.time()), topic=sub_topic).json())
+    time.sleep(0.5)
+
+    assert client2.connected
+    assert RESPOSE2[0] == "PRINT_MESSAGE_AND_EXIT"
+
+    data = TransportMessage.parse_raw(RESPOSE2[1])
+    assert data.timestamp is not None
+    assert data.topic is None
+    assert data.payload == f"Not subscribed to {sub_topic}."
+
     # Unsubscribe from topic
     client.emit(emit_topic, TransportMessage(timestamp=int(time.time()), topic=sub_topic).json())
     time.sleep(0.5)
@@ -243,20 +257,6 @@ def test_unsubscribe(client):
     assert data.payload == f"Successfully unsubscribed from {sub_topic}."
 
     RESPOSE1 = None
-
-    # Unsubscribe from topic that is already unsubscribed
-    client.emit(emit_topic, TransportMessage(timestamp=int(time.time()), topic=sub_topic).json())
-    time.sleep(0.5)
-
-    assert client.connected
-    assert RESPOSE1[0] == "PRINT_MESSAGE_AND_EXIT"
-
-    data = TransportMessage.parse_raw(RESPOSE1[1])
-    assert data.timestamp is not None
-    assert data.topic is None
-    assert data.payload == f"Not subscribed to {sub_topic}."
-
-    # TODO: Check if the topic is deleted
 
 
 def test_list_topics(client):
@@ -280,7 +280,7 @@ def test_list_topics(client):
     RESPOSE1 = None
 
     # Create new topic and subscribe
-    client.emit("SUBSCRIBE_TOPIC")
+    client.emit("SUBSCRIBE_TOPIC", TransportMessage(timestamp=int(time.time()), topic=sub_topic).json())
     time.sleep(0.5)
 
     # List topics
@@ -374,6 +374,7 @@ def test_heartbeat(client, client2):
     assert data.topic is None
     assert sub_topic in data.payload
     assert "12345" in data.payload
+
 
 def test_cleanup_topic(client):
     global RESPOSE1
