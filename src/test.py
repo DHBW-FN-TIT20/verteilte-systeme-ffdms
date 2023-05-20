@@ -7,13 +7,16 @@ import pytest
 RESPOSE1 = None
 RESPOSE2 = None
 
+
 def answers1(*data):
     global RESPOSE1
     RESPOSE1 = data
 
+
 def answers2(*data):
     global RESPOSE2
     RESPOSE2 = data
+
 
 @pytest.fixture
 def client():
@@ -22,6 +25,7 @@ def client():
     client.on("*", answers1)
     yield client
     client.disconnect()
+
 
 @pytest.fixture
 def client2():
@@ -40,7 +44,7 @@ def test_subscribe(client, client2):
     sub_topic = "test"
     emit_topic = "SUBSCRIBE_TOPIC"
 
-    #TODO: Check topic is None
+    # TODO: Check topic is None
 
     # Subscribe to new topic wihout payload
     client.emit(emit_topic)
@@ -48,12 +52,12 @@ def test_subscribe(client, client2):
 
     assert client.connected
     assert RESPOSE1[0] == "PRINT_MESSAGE_AND_EXIT"
-    
+
     data = TransportMessage.parse_raw(RESPOSE1[1])
     assert data.timestamp is not None
     assert data.topic is None
     assert data.payload == "Missing payload of type TransportMessage."
-    
+
     RESPOSE1 = None
 
     # Subscribe to new topic without topic
@@ -73,11 +77,11 @@ def test_subscribe(client, client2):
     # Subscribe to new topic
     client.emit(emit_topic, TransportMessage(timestamp=int(time.time()), topic=sub_topic).json())
     time.sleep(0.5)
- 
+
     # Check message for the first client
     assert client.connected
     assert RESPOSE1[0] == "PRINT_MESSAGE"
-    
+
     data = TransportMessage.parse_raw(RESPOSE1[1])
     assert data.timestamp is not None
     assert data.topic is None
@@ -173,6 +177,34 @@ def test_publish(client, client2):
     assert data.topic is None
     assert data.payload.split(": ")[1] == payload
 
+    RESPOSE1 = None
+    RESPOSE2 = None
+
+    # Publish second message to topic
+    client2.emit(emit_topic, TransportMessage(timestamp=int(time.time()), topic=sub_topic, payload=payload).json())
+    time.sleep(0.5)
+
+    # Check if publisher is notified
+    assert client2.connected
+    assert RESPOSE2[0] == "PRINT_MESSAGE_AND_EXIT"
+
+    data = TransportMessage.parse_raw(RESPOSE2[1])
+    assert data.timestamp is not None
+    assert data.topic is None
+    assert data.payload == f"Successfully published message to {sub_topic}."
+
+    # Check if the message is published
+    assert client.connected
+    assert RESPOSE1[0] == "PRINT_MESSAGE"
+
+    data = TransportMessage.parse_raw(RESPOSE1[1])
+    assert data.timestamp is not None
+    assert data.topic is None
+    assert data.payload.split(": ")[1] == payload
+
+    RESPOSE1 = None
+    RESPOSE2 = None
+
 
 def test_unsubscribe(client):
     global RESPOSE1
@@ -225,7 +257,7 @@ def test_unsubscribe(client):
     assert data.topic is None
     assert data.payload == f"Not subscribed to {sub_topic}."
 
-    #TODO: Check if the topic is deleted
+    # TODO: Check if the topic is deleted
 
 
 def test_list_topics(client):
@@ -267,6 +299,7 @@ def test_list_topics(client):
 
     RESPOSE1 = None
 
+
 def test_get_topic_status(client):
     global RESPOSE1
     RESPOSE1 = None
@@ -302,6 +335,43 @@ def test_get_topic_status(client):
     data = TransportMessage.parse_raw(RESPOSE1[1])
     assert data.timestamp is not None
     assert data.topic is None
-    assert isinstance(data.payload, str)    # only check if it is a string 
+    assert isinstance(data.payload, str)  # only check if it is a string
 
     RESPOSE1 = None
+
+
+def test_heartbeat(client, client2):
+    global RESPOSE1
+    RESPOSE1 = None
+    sub_topic = "test"
+    emit_topic = "SUBSCRIBE_TOPIC"
+
+    # Create new topic and subscribe
+    client.emit(emit_topic, TransportMessage(timestamp=int(time.time()), topic=sub_topic).json())
+    time.sleep(0.5)
+
+    # publish first message
+    client2.emit("PUBLISH_TOPIC", TransportMessage(timestamp=int(time.time()), topic=sub_topic, payload="12345").json())
+    time.sleep(0.5)
+
+    assert RESPOSE1 is not None
+    RESPOSE1 = None
+
+    # Wait 10 seconds
+    time.sleep(10)
+
+    # No message should be received
+    assert RESPOSE1 is None
+
+    # Wait 15 seconds. In sum 25 seconds (heartbeat interval is 20 seconds)
+    time.sleep(15)
+
+    # Check if the message is published
+    assert client.connected
+    assert RESPOSE1[0] == "PRINT_MESSAGE"
+
+    data = TransportMessage.parse_raw(RESPOSE1[1])
+    assert data.timestamp is not None
+    assert data.topic is None
+    assert sub_topic in data.payload
+    assert "12345" in data.payload

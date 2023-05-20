@@ -2,6 +2,7 @@
 
 import asyncio
 import time
+import logging
 from argparse import ArgumentParser
 from datetime import datetime
 from threading import Thread
@@ -12,6 +13,8 @@ from aiohttp import web
 
 from transport_message import TransportMessage
 
+# Setup logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 class ParallelTimer(Thread):
     def __init__(self, server) -> None:
@@ -63,6 +66,7 @@ class Server:
                     timestamp=int(time.time()), payload="Missing payload of type TransportMessage."
                 )
                 await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
+                logging.error(response.payload)
                 return None
             return await func(self, sid, data)
 
@@ -80,12 +84,14 @@ class Server:
             except Exception:
                 response = TransportMessage(timestamp=int(time.time()), payload="Invalid payload.")
                 await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
+                logging.error(response.payload)
                 return None
 
             # Check if data contains topic
             if parsed_data.topic is None:
                 response = TransportMessage(timestamp=int(time.time()), payload="Missing parameter topic.")
                 await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
+                logging.error(response.payload)
                 return None
             return await func(self, sid, data)
 
@@ -98,7 +104,7 @@ class Server:
         :param environ: Environment variables
         :param auth: Unused
         """
-        print(f"{sid} connected ({environ['REMOTE_ADDR']})")
+        logging.info("SID: %s connected (%s)", sid, environ["REMOTE_ADDR"])
 
     @_check_data_none_decorator
     @_check_topic_decorator
@@ -134,6 +140,7 @@ class Server:
             )
 
         await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
+        logging.info(response.payload)
 
     @_check_data_none_decorator
     @_check_topic_decorator
@@ -164,6 +171,7 @@ class Server:
             response = TransportMessage(timestamp=int(time.time()), payload=f"{data.topic} does not exist.")
 
         await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
+        logging.info(response.payload)
 
     @_check_data_none_decorator
     @_check_topic_decorator
@@ -196,6 +204,7 @@ class Server:
             response = TransportMessage(timestamp=int(time.time()), payload=f"{data.topic} does not exist.")
 
         await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
+        logging.info(response.payload)
 
     async def handle_list_topics(self, sid, data=None) -> None:
         """Called when a client requests a list of all topics.
@@ -210,6 +219,7 @@ class Server:
 
         response = TransportMessage(timestamp=int(time.time()), payload=response_msg)
         await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
+        logging.info(response.payload)
 
     @_check_data_none_decorator
     @_check_topic_decorator
@@ -238,6 +248,7 @@ class Server:
             response = TransportMessage(timestamp=int(time.time()), payload=f"{data.topic} does not exist.")
 
         await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
+        logging.info(response.payload)
 
     async def update_topic(self, topic: Topic) -> None:
         """Called when a topic is updated.
@@ -250,9 +261,9 @@ class Server:
             timestamp=int(time.time()),
             payload=f"{topic.name} ({datetime.fromtimestamp(int(topic.timestamp)).strftime('%d-%m-%Y %H:%M:%S')}): {topic.content}",
         )
-        # Top1 (17.05.2023, 09:12): Content hier
         for sub in topic.subscribers:
             await self.sio.emit("PRINT_MESSAGE", response.json(), room=sub)
+            logging.info("Publish to %s: %s", topic.name, response.payload)
 
     async def heart_beat(self, time_delta):
         """Go through all topics and check if they were updated in the last time_delta seconds.
@@ -263,7 +274,7 @@ class Server:
         for topic in self.list_of_topics:
             if topic.last_update is not None and int(time.time()) - topic.last_update > time_delta:
                 await self.update_topic(topic)
-                print(f"updated {topic.name}")
+                logging.info("Topic %s was updated through heart beat.", topic.name)
 
     def _get_topic_by_name(self, name: str) -> Optional[Topic]:
         """Get a topic by its name.
