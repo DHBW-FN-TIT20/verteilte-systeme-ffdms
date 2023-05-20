@@ -44,7 +44,7 @@ class Topic:
 
 class Server:
     def __init__(self) -> None:
-        self.list_of_topics: List[Topic] = []
+        self._list_of_topics: List[Topic] = []
 
         self.sio = socketio.AsyncServer(async_mode="aiohttp", cors_allowed_origins="*")
         self.sio.event(self.connect)
@@ -134,7 +134,7 @@ class Server:
             new_topic = Topic()
             new_topic.name = data.topic
             new_topic.subscribers.append(sid)
-            self.list_of_topics.append(new_topic)
+            self._add_topic(new_topic)
             response = TransportMessage(
                 timestamp=int(time.time()), payload=f"Created {data.topic} and successfully subscribed."
             )
@@ -162,6 +162,9 @@ class Server:
                 response = TransportMessage(
                     timestamp=int(time.time()), payload=f"Successfully unsubscribed from {data.topic}."
                 )
+                # Delete topic if no subscribers left
+                if len(topic.subscribers) == 0:
+                    self._remove_topic(topic)
             else:
                 # Not subscribed
                 response = TransportMessage(timestamp=int(time.time()), payload=f"Not subscribed to {data.topic}.")
@@ -214,7 +217,7 @@ class Server:
         :param data: Data sent by the client. Unused
         """
         response_msg = "All topics on the server:"
-        for topic in self.list_of_topics:
+        for topic in self._list_of_topics:
             response_msg += f"\n{topic.name}"
 
         response = TransportMessage(timestamp=int(time.time()), payload=response_msg)
@@ -271,7 +274,7 @@ class Server:
 
         :param time_delta: Time in seconds
         """
-        for topic in self.list_of_topics:
+        for topic in self._list_of_topics:
             if topic.last_update is not None and int(time.time()) - topic.last_update > time_delta:
                 await self.update_topic(topic)
                 logging.info("Topic %s was updated through heart beat.", topic.name)
@@ -282,10 +285,25 @@ class Server:
         :param name: Name of the topic
         :return: Topic object
         """
-        for topic in self.list_of_topics:
+        for topic in self._list_of_topics:
             if topic.name == name:
                 return topic
         return None
+    
+    def _add_topic(self, topic: Topic) -> None:
+        """Add a topic to the list of topics.
+
+        :param topic: Topic object
+        """
+        self._list_of_topics.append(topic)
+
+    def _remove_topic(self, topic: Topic) -> None:
+        """Remove a topic from the list of topics.
+
+        :param topic: Topic object
+        """
+        logging.warning("Topic %s was removed.", topic.name)
+        self._list_of_topics.remove(topic)
 
 
 def get_app():

@@ -375,3 +375,36 @@ def test_heartbeat(client, client2):
     assert data.topic is None
     assert sub_topic in data.payload
     assert "12345" in data.payload
+
+def test_cleanup_topic(client):
+    global RESPOSE1
+    RESPOSE1 = None
+    sub_topic = "test"
+    emit_topic = "SUBSCRIBE_TOPIC"
+
+    # Create new topic and subscribe
+    client.emit(emit_topic, TransportMessage(timestamp=int(time.time()), topic=sub_topic).json())
+    time.sleep(0.5)
+
+    # publish first message
+    client.emit("PUBLISH_TOPIC", TransportMessage(timestamp=int(time.time()), topic=sub_topic, payload="12345").json())
+    time.sleep(0.5)
+
+    assert RESPOSE1 is not None
+    RESPOSE1 = None
+
+    # Unsubscribe from topic
+    client.emit("UNSUBSCRIBE_TOPIC", TransportMessage(timestamp=int(time.time()), topic=sub_topic).json())
+    time.sleep(0.5)
+
+    # Subscribe again and check if the topic is created again
+    client.emit(emit_topic, TransportMessage(timestamp=int(time.time()), topic=sub_topic).json())
+    time.sleep(0.5)
+
+    assert client.connected
+    assert RESPOSE1[0] == "PRINT_MESSAGE"
+
+    data = TransportMessage.parse_raw(RESPOSE1[1])
+    assert data.timestamp is not None
+    assert data.topic is None
+    assert data.payload == f"Created {sub_topic} and successfully subscribed."

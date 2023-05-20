@@ -36,6 +36,8 @@ Folgende Tests stehen zu Verfügung:
 - `test_unsubscribe`
 - `test_list_topics`
 - `test_get_topic_status`
+- `test_heartbeat`
+- `test_cleanup_topic`
 
 Server starten:
 ```bash
