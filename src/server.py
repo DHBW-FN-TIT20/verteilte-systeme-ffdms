@@ -1,11 +1,11 @@
 """Server for publisher subscriber system. For more information, please run `python server.py --help`"""
 
 import asyncio
-import time
 import logging
+import time
 from argparse import ArgumentParser
 from datetime import datetime
-from threading import Thread
+from threading import Lock, Thread
 from typing import List, Optional
 
 import socketio
@@ -15,6 +15,7 @@ from transport_message import TransportMessage
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
 
 class ParallelTimer(Thread):
     def __init__(self, server) -> None:
@@ -45,6 +46,7 @@ class Topic:
 class Server:
     def __init__(self) -> None:
         self._list_of_topics: List[Topic] = []
+        self._lock = Lock()
 
         self.sio = socketio.AsyncServer(async_mode="aiohttp", cors_allowed_origins="*")
         self.sio.event(self.connect)
@@ -289,21 +291,23 @@ class Server:
             if topic.name == name:
                 return topic
         return None
-    
+
     def _add_topic(self, topic: Topic) -> None:
         """Add a topic to the list of topics.
 
         :param topic: Topic object
         """
-        self._list_of_topics.append(topic)
+        with self._lock:
+            self._list_of_topics.append(topic)
 
     def _remove_topic(self, topic: Topic) -> None:
         """Remove a topic from the list of topics.
 
         :param topic: Topic object
         """
-        logging.warning("Topic %s was removed.", topic.name)
-        self._list_of_topics.remove(topic)
+        with self._lock:
+            logging.warning("Topic %s was removed.", topic.name)
+            self._list_of_topics.remove(topic)
 
 
 def get_app():
