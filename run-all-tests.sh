@@ -32,6 +32,14 @@ function run_test_subscribe {
     stop_server
 }
 
+function run_test_subscribe_client {
+    start_server
+    echo "Running test subscriber client..."
+    pytest -W ignore::pytest.PytestUnhandledThreadExceptionWarning src/test.py::test_subscribe_client
+    is_success
+    stop_server
+}
+
 function run_test_unsubscribe {
     start_server
     echo "Running test unsubscribe..."
@@ -44,6 +52,14 @@ function run_test_publish {
     start_server
     echo "Running test publish..."
     pytest src/test.py::test_publish
+    is_success
+    stop_server
+}
+
+function run_test_publish_client {
+    start_server
+    echo "Running test publish..."
+    pytest -W ignore::pytest.PytestUnhandledThreadExceptionWarning src/test.py::test_publish_client
     is_success
     stop_server
 }
@@ -84,9 +100,13 @@ function run_test_cleanup_topic {
 function run_all_tests {
     run_test_subscribe
     wait 1
+    run_test_subscribe_client
+    wait 1
     run_test_unsubscribe
     wait 1
     run_test_publish
+    wait 1
+    run_test_publish_client
     wait 1
     run_test_list_topics
     wait 1

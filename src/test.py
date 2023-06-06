@@ -1,7 +1,8 @@
 import socketio
-from transport_message import TransportMessage
 import time
 import pytest
+from client import Client
+from transport_message import TransportMessage
 
 RESPOSE1 = None
 RESPOSE2 = None
@@ -28,9 +29,23 @@ def client():
 
 @pytest.fixture
 def client2():
-    client = socketio.Client()
+    client = socketio.Client(logger=False)
     client.connect("http://localhost:8080")
     client.on("*", answers2)
+    yield client
+    client.disconnect()
+
+
+@pytest.fixture
+def user_client():
+    client = Client("http://localhost:8080")
+    yield client
+    client.disconnect()
+
+
+@pytest.fixture
+def user_client2():
+    client = Client("http://localhost:8080")
     yield client
     client.disconnect()
 
@@ -127,6 +142,18 @@ def test_subscribe(client, client2):
     assert RESPOSE1 is None
 
 
+def test_subscribe_client(capsys, user_client):
+    sub_topic = "test_topic"
+
+    user_client.subscribe(sub_topic)
+    time.sleep(0.5)
+
+    expected_str = f"======= SUBSCRIBED TO {sub_topic} ======="
+    output_list = capsys.readouterr()[0].split("\n")
+
+    assert output_list[0] == expected_str
+
+
 def test_publish(client, client2):
     global RESPOSE1
     global RESPOSE2
@@ -205,6 +232,37 @@ def test_publish(client, client2):
     RESPOSE2 = None
 
 
+def test_publish_client(capsys, user_client, user_client2):
+    sub_topic = "test_topic"
+    not_sub_topic = "i do not exist"
+    msg_publish = "this is a message"
+
+    with capsys.disabled():
+        user_client2.subscribe(sub_topic)
+        time.sleep(0.5)
+
+    # Publish to a topic
+    user_client.publish(sub_topic, msg_publish)
+    time.sleep(0.5)
+
+    expected_msg1 = f"Message: {msg_publish}"
+    expected_msg2 = f"Successfully published message to {sub_topic}."
+    output_list = capsys.readouterr()[0].split("\n")
+
+    assert output_list[1] == expected_msg1
+    # from user_client2 "test_topic (06-06-2023 10:21:16): this is a message""
+    assert output_list[3] == expected_msg2
+
+    # Publish to a topic that does not exist
+    user_client2.publish(not_sub_topic, msg_publish)
+    time.sleep(0.5)
+
+    expected_msg = f"{not_sub_topic} does not exist."
+    output_list2 = capsys.readouterr()[0].split("\n")
+
+    assert output_list2[2] == expected_msg
+
+
 def test_unsubscribe(client, client2):
     global RESPOSE1
     global RESPOSE2
@@ -259,6 +317,10 @@ def test_unsubscribe(client, client2):
     RESPOSE1 = None
 
 
+def test_unsubscribe_client():
+    pass
+
+
 def test_list_topics(client):
     global RESPOSE1
     RESPOSE1 = None
@@ -299,6 +361,10 @@ def test_list_topics(client):
     RESPOSE1 = None
 
 
+def test_list_topics_client():
+    pass
+
+
 def test_get_topic_status(client):
     global RESPOSE1
     RESPOSE1 = None
@@ -337,6 +403,10 @@ def test_get_topic_status(client):
     assert isinstance(data.payload, str)  # only check if it is a string
 
     RESPOSE1 = None
+
+
+def test_get_topic_status_client():
+    pass
 
 
 def test_heartbeat(client, client2):
