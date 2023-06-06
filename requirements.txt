@@ -3,3 +3,5 @@ pydantic
 python-socketio
 websocket-client
 
+python-socketio[client]
+pytest

@@ -7,23 +7,57 @@ import functools
 from argparse import ArgumentParser
 from datetime import datetime
 from threading import Lock, Thread
-from typing import List, Optional
+from typing import List, Optional, Union, Dict
 
 import socketio
 from aiohttp import web
 
 from transport_message import TransportMessage
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+## Setup logging ##
+# Set all loggers to ERROR level
+loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+for logger in loggers:
+    logger.setLevel(logging.ERROR)
+
+# Set server logger to INFO level
+# Create file handler which logs even debug messages
+file_handler = logging.FileHandler("server.log")
+file_handler.setLevel(logging.DEBUG)
+
+# Create console handler
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+
+# Create formatter and add it to the handlers
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+file_handler.setFormatter(formatter)
+console_handler.setFormatter(formatter)
+
+# Add the handlers to the logger
+logging.getLogger().addHandler(file_handler)
+logging.getLogger().addHandler(console_handler)
+logging.getLogger().setLevel(logging.DEBUG)
+
+# logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 class ParallelTimer(Thread):
+    """Class to manage a parallel timer in different thread on the server triggering a heart beat algorithm every 20 seconds.
+    """
     def __init__(self, server) -> None:
+        """Constructor of ParallelTimer class.
+        
+        :param server: server object
+        """
         super().__init__()
         self.server = server
 
     def run(self):
+        """
+        Starting parallel timer in loop.
+        """
         while 1:
             heartbeat = self.server.heart_beat(20)
             asyncio.run(heartbeat)
@@ -32,24 +66,27 @@ class ParallelTimer(Thread):
 class Topic:
     """Class to manage the Topics with needed data."""
 
-    name = None
+    name: Union[None, str] = None
     """name of the topic"""
-    content = None
+    content: Union[None, str] = None
     """content of the topic"""
     subscribers: List[str] = []
     """list of subscribers"""
-    timestamp = None
+    timestamp: Union[None, int] = None
     """timestamp"""
-    last_update = None
+    last_update: Union[None, int] = None
     """last update of topic"""
 
 
 class Server:
     def __init__(self) -> None:
         self._list_of_topics: List[Topic] = []
+        self._sid_ip_mapping: Dict[str, str] = {}
         self._lock = Lock()
 
-        self.sio = socketio.AsyncServer(async_mode="aiohttp", cors_allowed_origins="*")
+        self.sio = socketio.AsyncServer(
+            async_mode="aiohttp", cors_allowed_origins="*", logger=False, engineio_logger=False
+        )
         self.sio.event(self.connect)
         self.sio.on("SUBSCRIBE_TOPIC", self.handle_subscribe)
         self.sio.on("UNSUBSCRIBE_TOPIC", self.handle_unsubscribe)
@@ -57,11 +94,11 @@ class Server:
         self.sio.on("LIST_TOPICS", self.handle_list_topics)
         self.sio.on("GET_TOPIC_STATUS", self.handle_topic_status)
 
-    @staticmethod
     def _check_data_none_decorator(func):
         """Decorator for checking if data is None.
         If data is None, the client will receive an error message.
         """
+
         @functools.wraps(func)
         async def wrapper(self, *args, **kwargs):
             sid = args[0]
@@ -71,17 +108,17 @@ class Server:
                     timestamp=int(time.time()), payload="Missing payload of type TransportMessage."
                 )
                 await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
-                logging.error(response.payload)
+                logging.error("%s - %s", self._sid_ip_mapping[sid], response.payload)
                 return None
             return await func(self, *args, **kwargs)
 
         return wrapper
 
-    @staticmethod
     def _check_topic_decorator(func):
         """Decorator for checking if topic exists.
         If topic does not exist, the client will receive an error message.
         """
+
         @functools.wraps(func)
         async def wrapper(self, *args, **kwargs):
             sid = args[0]
@@ -91,14 +128,14 @@ class Server:
             except Exception:
                 response = TransportMessage(timestamp=int(time.time()), payload="Invalid payload.")
                 await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
-                logging.error(response.payload)
+                logging.error("%s - %s", self._sid_ip_mapping[sid], response.payload)
                 return None
 
             # Check if data contains topic
             if parsed_data.topic is None:
                 response = TransportMessage(timestamp=int(time.time()), payload="Missing parameter topic.")
                 await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
-                logging.error(response.payload)
+                logging.error("%s - %s", self._sid_ip_mapping[sid], response.payload)
                 return None
             return await func(self, *args, **kwargs)
 
@@ -111,19 +148,19 @@ class Server:
         :param environ: Environment variables
         :param auth: Unused
         """
-        logging.info("SID: %s connected (%s)", sid, environ["REMOTE_ADDR"])
+        logging.info("%s - SID: %s connected", environ["aiohttp.request"].remote, sid)
+        self._sid_ip_mapping[sid] = environ["aiohttp.request"].remote
 
     @_check_data_none_decorator
     @_check_topic_decorator
     async def handle_subscribe(self, sid, data=None) -> None:
         """Called when a client subscribes to a topic.
         If the topic does not exist, it will be created. If the client is already subscribed to the topic, nothing
-        happens. Otherwise the client will be subscribed to the topic and will receive updates.
+        changes. Otherwise the client will be subscribed to the topic and will receive updates.
 
         :param sid: Generated session id
         :param data: Data sent by the client
         """
-
         data = TransportMessage.parse_raw(data)
         topic = self._get_topic_by_name(data.topic)
         if topic is not None:
@@ -147,13 +184,15 @@ class Server:
             )
 
         await self.sio.emit("PRINT_MESSAGE", response.json(), room=sid)
-        logging.info(response.payload)
+        logging.info("%s - %s", self._sid_ip_mapping[sid], response.payload)
 
     @_check_data_none_decorator
     @_check_topic_decorator
     async def handle_unsubscribe(self, sid, data=None) -> None:
         """Called when a client unsubscribes from a topic.
-        The client will be unsubscribed from the topic and will not receive any updates.
+        If the client is not subscribed to the topic or topic does not exist, the client will receive an error message.
+        Otherwise the client will be unsubscribed from the topic and will not receive any updates.
+        If the topic has no subscribers left it will be deleted.
 
         :param sid: Generated session id
         :param data: Data sent by the client
@@ -181,7 +220,7 @@ class Server:
             response = TransportMessage(timestamp=int(time.time()), payload=f"{data.topic} does not exist.")
 
         await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
-        logging.info(response.payload)
+        logging.info("%s - %s", self._sid_ip_mapping[sid], response.payload)
 
     @_check_data_none_decorator
     @_check_topic_decorator
@@ -214,7 +253,7 @@ class Server:
             response = TransportMessage(timestamp=int(time.time()), payload=f"{data.topic} does not exist.")
 
         await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
-        logging.info(response.payload)
+        logging.info("%s - %s", self._sid_ip_mapping[sid], response.payload)
 
     async def handle_list_topics(self, sid, data=None) -> None:
         """Called when a client requests a list of all topics.
@@ -229,7 +268,7 @@ class Server:
 
         response = TransportMessage(timestamp=int(time.time()), payload=response_msg)
         await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
-        logging.info(response.payload)
+        logging.info("%s - %s", self._sid_ip_mapping[sid], response.payload)
 
     @_check_data_none_decorator
     @_check_topic_decorator
@@ -247,18 +286,22 @@ class Server:
         if topic is not None:
             subscribers = ""
             for subscriber in topic.subscribers:
-                subscribers.join(f"\t{subscriber}\n\t")
+                subscribers += f"\t{self._sid_ip_mapping[subscriber]}\n\t"
+
             if topic.content is None or topic.timestamp is None:
-                topic_status = f"\ntopic name:\t{topic.name}\n\nsubscribers:{subscribers}\n\nThere was no publish on this topic yet."
+                topic_status = (
+                    f"\ntopic name:\t{topic.name}\n\nsubscribers:{subscribers}\nThere was no publish on this topic yet."
+                )
             else:
                 topic_status = f"\ntopic name:\t{topic.name}\n\ntimestamp:\t{datetime.fromtimestamp(int(topic.timestamp)).strftime('%d-%m-%Y %H:%M:%S')}\n\ncontent:\t{topic.content}\n\nsubscribers:{subscribers}"
+
             response = TransportMessage(timestamp=int(time.time()), payload=topic_status)
         else:
             # Topic not existing
             response = TransportMessage(timestamp=int(time.time()), payload=f"{data.topic} does not exist.")
 
         await self.sio.emit("PRINT_MESSAGE_AND_EXIT", response.json(), room=sid)
-        logging.info(response.payload)
+        logging.info("%s - %s", self._sid_ip_mapping[sid], response.payload)
 
     async def update_topic(self, topic: Topic) -> None:
         """Called when a topic is updated.
@@ -273,7 +316,6 @@ class Server:
         )
         for sub in topic.subscribers:
             await self.sio.emit("PRINT_MESSAGE", response.json(), room=sub)
-            logging.info("Publish to %s: %s", topic.name, response.payload)
 
     async def heart_beat(self, time_delta):
         """Go through all topics and check if they were updated in the last time_delta seconds.
@@ -321,7 +363,8 @@ def get_app():
     :return: ASGI application
     """
     server = Server()
-    application = web.Application()
+    application = web.Application(logger=None)
+
     server.sio.attach(application)
 
     timer = ParallelTimer(server)

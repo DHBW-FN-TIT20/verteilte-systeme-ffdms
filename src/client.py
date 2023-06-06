@@ -6,9 +6,9 @@ import json
 import os
 import sys
 import time
-from contextlib import redirect_stderr
 
 import socketio
+from contextlib import redirect_stderr
 
 from transport_message import TransportMessage
 
@@ -36,6 +36,12 @@ class Client:
 
         self.subscribed_topics = []
 
+    def disconnect(self) -> None:
+        """
+        Disconnect socket
+        """
+        self.socket.disconnect()
+
     def subscribe(self, topics) -> None:
         """
         Request to subscribe to topics, wait for server messages
@@ -49,6 +55,7 @@ class Client:
             self.subscribed_topics = [topics]
 
         print(f"======= SUBSCRIBED TO {', '.join(self.subscribed_topics)} =======\n")
+
         for topic in self.subscribed_topics:
             tMessage = TransportMessage(timestamp=time.time(), topic=topic)
             self.socket.emit("SUBSCRIBE_TOPIC", tMessage.json())
@@ -61,7 +68,7 @@ class Client:
         for topic in self.subscribed_topics:
             tMessage = TransportMessage(timestamp=time.time(), topic=topic)
             self.socket.emit("UNSUBSCRIBE_TOPIC", tMessage.json())
-        
+
         # Disconnect
         self.socket.disconnect()
 
@@ -95,7 +102,7 @@ class Client:
         """
         tMessage = TransportMessage(timestamp=time.time(), topic=topic)
         self.socket.emit("GET_TOPIC_STATUS", tMessage.json())
-    
+
     def _handleResponse(self, response):
         """
         Receive PRINT_MESSAGE response from server
@@ -105,7 +112,7 @@ class Client:
         """
         response_dict = json.loads(response)
         print(f"{response_dict['payload']}")
-    
+
     def _handleExitResponse(self, response):
         """
         Receive PRINT_MESSAGE_AND_EXIT response from server
@@ -114,19 +121,15 @@ class Client:
         :type response: string
         """
         self._handleResponse(response)
-        
+
         # Exit
-        self.socket.disconnect()
+        self.disconnect()
         sys.exit(0)
-        
+
 
 if __name__ == "__main__":
-
     # init parser
-    parser = argparse.ArgumentParser(
-        prog="Client",
-        description="Client for Publisher"
-    )
+    parser = argparse.ArgumentParser(prog="Client", description="Client for Publisher")
 
     parser.add_argument("-s", "--server", required=True, help="server address", metavar="ADDRESS:PORT")
     parser.add_argument("-sub", "--subscribe", nargs="+", help="list of topics to subscribe", metavar="TOPIC")
@@ -143,7 +146,7 @@ if __name__ == "__main__":
     # workaround for
     # KeyboardInterrupt: "Exception ignored in: <module 'threading' from '/usr/lib/python3.10/threading.py'>"
     # To see error messages, comment those lines
-    fnull = open(os.devnull, 'w')
+    fnull = open(os.devnull, "w")
     r = redirect_stderr(fnull)
     r.__enter__()
 
@@ -159,4 +162,3 @@ if __name__ == "__main__":
         cli.getTopicStatus(args.status)
     else:
         print("No action, please check your parameters")
-    
