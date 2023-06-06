@@ -1,7 +1,6 @@
 aiohttp
 pydantic
-python-socketio
-websocket-client
-
-python-socketio[client]
 pytest
+python-socketio
+python-socketio[client]
+websocket-client

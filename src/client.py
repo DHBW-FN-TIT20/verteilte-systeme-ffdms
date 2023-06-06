@@ -131,11 +131,11 @@ if __name__ == "__main__":
     # init parser
     parser = argparse.ArgumentParser(prog="Client", description="Client for Publisher")
 
-    parser.add_argument("-s", "--server", required=True, help="server address", metavar="ADDRESS:PORT")
-    parser.add_argument("-sub", "--subscribe", nargs="+", help="list of topics to subscribe", metavar="TOPIC")
-    parser.add_argument("-p", "--publish", help="published topic", metavar="TOPIC")
-    parser.add_argument("-m", "--message", help="message to be published to topic", metavar="STRING")
-    parser.add_argument("-st", "--status", help="get topic status from server", metavar="TOPIC")
+    parser.add_argument("-s", "--server", required=True, help="server address as String", metavar="ADDRESS:PORT")
+    parser.add_argument("-sub", "--subscribe", nargs="+", help="list of topics to subscribe as Strings", metavar="STRING")
+    parser.add_argument("-p", "--publish", help="published topic as String", metavar="STRING")
+    parser.add_argument("-m", "--message", help="message to be published to topic as String", metavar="STRING")
+    parser.add_argument("-st", "--status", help="get topic status from server", metavar="STRING")
     parser.add_argument("-l", "--list", action="store_true", help="get all list topics from server")
 
     args = parser.parse_args()

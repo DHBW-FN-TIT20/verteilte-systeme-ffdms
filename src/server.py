@@ -44,11 +44,11 @@ logging.getLogger().setLevel(logging.DEBUG)
 
 
 class ParallelTimer(Thread):
-    """Class to manage a parallel timer in different thread on the server triggering a heart beat algorithm every 20 seconds.
-    """
+    """Class to manage a parallel timer in different thread on the server triggering a heart beat algorithm every 20 seconds."""
+
     def __init__(self, server) -> None:
         """Constructor of ParallelTimer class.
-        
+
         :param server: server object
         """
         super().__init__()
@@ -376,10 +376,10 @@ def get_app():
 if __name__ == "__main__":
     parser = ArgumentParser(prog="server.py", description="Starts a server for publisher subscriber system")
     parser.add_argument(
-        "-p", "--port", type=str, help="Port to run the server on. Default is 8080", default=8080, metavar="PORT"
+        "-p", "--port", type=str, help="Port to run the server on. Default is 8080", default=8080, metavar="STRING"
     )
     parser.add_argument(
-        "--host", type=str, help="Host to run the server on. Default is localhost", default="127.0.0.1", metavar="HOST"
+        "--host", type=str, help="Host to run the server on. Default is localhost", default="127.0.0.1", metavar="STRING"
     )
     params = parser.parse_args()
 
